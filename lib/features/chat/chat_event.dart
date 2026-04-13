@@ -97,6 +97,15 @@ class TargetLanguageChanged extends ChatEvent {
   List<Object?> get props => [languageCode];
 }
 
+class AssistantVoiceChanged extends ChatEvent {
+  final VoiceOption? voice;
+
+  const AssistantVoiceChanged(this.voice);
+
+  @override
+  List<Object?> get props => [voice];
+}
+
 class ToggleMuteRequested extends ChatEvent {
   const ToggleMuteRequested();
 }

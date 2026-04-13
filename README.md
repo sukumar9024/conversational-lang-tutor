@@ -84,11 +84,15 @@ OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 OPENROUTER_PRIMARY_MODEL=anthropic/claude-sonnet-4.5
 OPENROUTER_FALLBACK_MODEL_1=openai/gpt-4.1-mini
 OPENROUTER_FALLBACK_MODEL_2=google/gemini-2.5-flash
+TTS_PREFERRED_VOICE_IDENTIFIER=
+TTS_PREFERRED_VOICE_NAME=
+TTS_PREFERRED_VOICE_LOCALE=
 APP_DEBUG=false
 APP_LOG_LEVEL=info
 ```
 
 The app uses 3 OpenRouter models in priority order. If the primary model is unavailable, OpenRouter can route to the fallback models.
+Voice output is selected automatically from installed voices for the current target language. You can also set a manual per-language voice in the app, or define an optional fixed preferred voice in `.env`.
 
 Get your API key from [OpenRouter](https://openrouter.ai/keys).
 
@@ -207,6 +211,9 @@ lib/
 | `OPENROUTER_FALLBACK_MODEL_1` | Second model to try |
 | `OPENROUTER_FALLBACK_MODEL_2` | Third model to try |
 | `OPENROUTER_MODEL` | Optional legacy single-model variable |
+| `TTS_PREFERRED_VOICE_IDENTIFIER` | Optional exact preferred assistant voice identifier |
+| `TTS_PREFERRED_VOICE_NAME` | Optional preferred assistant voice name |
+| `TTS_PREFERRED_VOICE_LOCALE` | Optional preferred assistant voice locale |
 | `APP_DEBUG` | Enables debug-oriented app/network behavior |
 | `APP_LOG_LEVEL` | App logging level |
 

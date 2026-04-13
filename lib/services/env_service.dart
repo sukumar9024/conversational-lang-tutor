@@ -58,6 +58,12 @@ class EnvService {
 
   bool get isDebug => dotenv.get('APP_DEBUG', fallback: 'false') == 'true';
   String get logLevel => dotenv.get('APP_LOG_LEVEL', fallback: 'info');
+  String get preferredAssistantVoiceIdentifier =>
+      dotenv.get('TTS_PREFERRED_VOICE_IDENTIFIER', fallback: '').trim();
+  String get preferredAssistantVoiceName =>
+      dotenv.get('TTS_PREFERRED_VOICE_NAME', fallback: '').trim();
+  String get preferredAssistantVoiceLocale =>
+      dotenv.get('TTS_PREFERRED_VOICE_LOCALE', fallback: '').trim();
 
   bool get hasValidApiKey =>
       openRouterApiKey.isNotEmpty && !openRouterApiKey.contains('your_api_key');

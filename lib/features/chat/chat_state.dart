@@ -1,6 +1,8 @@
 part of 'chat_bloc.dart';
 
 const _noErrorUpdate = Object();
+const _noActiveVoiceUpdate = Object();
+const _noManualVoiceUpdate = Object();
 
 class ChatState extends Equatable {
   final List<Message> messages;
@@ -11,6 +13,10 @@ class ChatState extends Equatable {
   final LanguageMode currentMode;
   final String targetLanguage;
   final bool isMuted;
+  final bool isVoiceLoading;
+  final List<VoiceOption> availableVoices;
+  final VoiceOption? activeVoice;
+  final VoiceOption? manualVoiceOverride;
 
   const ChatState({
     this.messages = const [],
@@ -21,6 +27,10 @@ class ChatState extends Equatable {
     this.currentMode = LanguageMode.immersion,
     this.targetLanguage = 'es',
     this.isMuted = false,
+    this.isVoiceLoading = false,
+    this.availableVoices = const [],
+    this.activeVoice,
+    this.manualVoiceOverride,
   });
 
   ChatState copyWith({
@@ -33,6 +43,10 @@ class ChatState extends Equatable {
     LanguageMode? currentMode,
     String? targetLanguage,
     bool? isMuted,
+    bool? isVoiceLoading,
+    List<VoiceOption>? availableVoices,
+    Object? activeVoice = _noActiveVoiceUpdate,
+    Object? manualVoiceOverride = _noManualVoiceUpdate,
   }) {
     return ChatState(
       messages: messages ?? this.messages,
@@ -47,6 +61,14 @@ class ChatState extends Equatable {
       currentMode: currentMode ?? this.currentMode,
       targetLanguage: targetLanguage ?? this.targetLanguage,
       isMuted: isMuted ?? this.isMuted,
+      isVoiceLoading: isVoiceLoading ?? this.isVoiceLoading,
+      availableVoices: availableVoices ?? this.availableVoices,
+      activeVoice: identical(activeVoice, _noActiveVoiceUpdate)
+          ? this.activeVoice
+          : activeVoice as VoiceOption?,
+      manualVoiceOverride: identical(manualVoiceOverride, _noManualVoiceUpdate)
+          ? this.manualVoiceOverride
+          : manualVoiceOverride as VoiceOption?,
     );
   }
 
@@ -60,5 +82,9 @@ class ChatState extends Equatable {
     currentMode,
     targetLanguage,
     isMuted,
+    isVoiceLoading,
+    availableVoices,
+    activeVoice,
+    manualVoiceOverride,
   ];
 }

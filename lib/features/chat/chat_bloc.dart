@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/errors/failures.dart';
 import '../../models/message.dart';
+import '../../models/voice_option.dart';
 import '../../services/openrouter_service.dart';
 import '../../services/stt_service.dart';
 import '../../services/tts_service.dart';
@@ -33,6 +34,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ClearChatRequested>(_onClearChat);
     on<ModeChanged>(_onModeChanged);
     on<TargetLanguageChanged>(_onTargetLanguageChanged);
+    on<AssistantVoiceChanged>(_onAssistantVoiceChanged);
     on<ToggleMuteRequested>(_onToggleMute);
   }
 
@@ -43,7 +45,11 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     try {
       await _sttService.init();
       await _ttsService.init();
-      emit(state.copyWith(isMuted: _ttsService.isMuted, clearError: true));
+      await _refreshVoiceConfiguration(
+        emit,
+        targetLanguage: state.targetLanguage,
+        clearError: true,
+      );
     } catch (error) {
       emit(state.copyWith(error: _formatError(error)));
     }
@@ -240,8 +246,51 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   void _onTargetLanguageChanged(
     TargetLanguageChanged event,
     Emitter<ChatState> emit,
-  ) {
-    emit(state.copyWith(targetLanguage: event.languageCode));
+  ) async {
+    emit(
+      state.copyWith(
+        targetLanguage: event.languageCode,
+        isVoiceLoading: true,
+        clearError: true,
+      ),
+    );
+
+    try {
+      await _refreshVoiceConfiguration(
+        emit,
+        targetLanguage: event.languageCode,
+        clearError: true,
+      );
+    } catch (error) {
+      emit(state.copyWith(isVoiceLoading: false, error: _formatError(error)));
+    }
+  }
+
+  Future<void> _onAssistantVoiceChanged(
+    AssistantVoiceChanged event,
+    Emitter<ChatState> emit,
+  ) async {
+    emit(state.copyWith(isVoiceLoading: true, clearError: true));
+
+    try {
+      final configuration = event.voice == null
+          ? await _ttsService.clearManualVoiceOverride(
+              targetLanguage: state.targetLanguage,
+            )
+          : await _ttsService.setManualVoiceOverride(
+              targetLanguage: state.targetLanguage,
+              voice: event.voice!,
+            );
+
+      _emitVoiceConfiguration(
+        emit,
+        configuration: configuration,
+        targetLanguage: state.targetLanguage,
+        clearError: true,
+      );
+    } catch (error) {
+      emit(state.copyWith(isVoiceLoading: false, error: _formatError(error)));
+    }
   }
 
   void _onToggleMute(ToggleMuteRequested event, Emitter<ChatState> emit) {
@@ -278,5 +327,50 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     }
 
     return error.toString();
+  }
+
+  Future<void> _refreshVoiceConfiguration(
+    Emitter<ChatState> emit, {
+    required String targetLanguage,
+    bool clearError = false,
+  }) async {
+    emit(
+      state.copyWith(
+        isMuted: _ttsService.isMuted,
+        isVoiceLoading: true,
+        targetLanguage: targetLanguage,
+        clearError: clearError,
+      ),
+    );
+
+    final configuration = await _ttsService.configureVoiceForLanguage(
+      targetLanguage,
+    );
+
+    _emitVoiceConfiguration(
+      emit,
+      configuration: configuration,
+      targetLanguage: targetLanguage,
+      clearError: clearError,
+    );
+  }
+
+  void _emitVoiceConfiguration(
+    Emitter<ChatState> emit, {
+    required TtsVoiceConfiguration configuration,
+    required String targetLanguage,
+    bool clearError = false,
+  }) {
+    emit(
+      state.copyWith(
+        targetLanguage: targetLanguage,
+        availableVoices: configuration.availableVoices,
+        activeVoice: configuration.activeVoice,
+        manualVoiceOverride: configuration.manualVoiceOverride,
+        isMuted: _ttsService.isMuted,
+        isVoiceLoading: false,
+        clearError: clearError,
+      ),
+    );
   }
 }

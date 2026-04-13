@@ -41,6 +41,19 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
+  Future<void> _showVoiceSettingsSheet(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        return BlocProvider.value(
+          value: context.read<ChatBloc>(),
+          child: const _VoiceSettingsSheet(),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
@@ -92,6 +105,11 @@ class _ChatScreenState extends State<ChatScreen> {
               onPressed: () =>
                   context.read<ChatBloc>().add(const ClearChatRequested()),
             ),
+            IconButton(
+              tooltip: 'Voice settings',
+              icon: const Icon(Icons.settings_voice),
+              onPressed: () => _showVoiceSettingsSheet(context),
+            ),
           ],
         ),
         body: Column(
@@ -100,34 +118,57 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               child: BlocBuilder<ChatBloc, ChatState>(
                 builder: (context, state) {
+                  final voiceStatus =
+                      state.activeVoice?.displayLabel ?? 'Device default voice';
+                  final voiceModeLabel = state.manualVoiceOverride != null
+                      ? 'Manual voice'
+                      : 'Automatic voice';
+
                   return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<LanguageMode>(
-                          initialValue: state.currentMode,
-                          decoration: const InputDecoration(
-                            labelText: 'Mode',
-                            isDense: true,
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: LanguageMode.immersion,
-                              child: Text('Immersion'),
+                        child: Column(
+                          children: [
+                            DropdownButtonFormField<LanguageMode>(
+                              initialValue: state.currentMode,
+                              decoration: const InputDecoration(
+                                labelText: 'Mode',
+                                isDense: true,
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: LanguageMode.immersion,
+                                  child: Text('Immersion'),
+                                ),
+                                DropdownMenuItem(
+                                  value: LanguageMode.guided,
+                                  child: Text('Guided'),
+                                ),
+                                DropdownMenuItem(
+                                  value: LanguageMode.correction,
+                                  child: Text('Correction'),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                if (value != null) {
+                                  context.read<ChatBloc>().add(
+                                    ModeChanged(value),
+                                  );
+                                }
+                              },
                             ),
-                            DropdownMenuItem(
-                              value: LanguageMode.guided,
-                              child: Text('Guided'),
-                            ),
-                            DropdownMenuItem(
-                              value: LanguageMode.correction,
-                              child: Text('Correction'),
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '$voiceModeLabel: $voiceStatus',
+                                style: Theme.of(context).textTheme.bodySmall,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
-                          onChanged: (value) {
-                            if (value != null) {
-                              context.read<ChatBloc>().add(ModeChanged(value));
-                            }
-                          },
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -274,6 +315,121 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _VoiceSettingsSheet extends StatelessWidget {
+  const _VoiceSettingsSheet();
+
+  static const _automaticVoiceSelection = '__automatic_voice_selection__';
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          16 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: BlocBuilder<ChatBloc, ChatState>(
+          builder: (context, state) {
+            final filteredVoices =
+                state.availableVoices
+                    .where(
+                      (voice) => voice.supportsLanguage(state.targetLanguage),
+                    )
+                    .toList()
+                  ..sort((a, b) => a.displayLabel.compareTo(b.displayLabel));
+
+            final currentSelection =
+                state.manualVoiceOverride?.id ?? _automaticVoiceSelection;
+            final currentLanguageLabel =
+                AppConstants.supportedLanguages[state.targetLanguage] ??
+                state.targetLanguage;
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Assistant voice',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Target language: $currentLanguageLabel',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  state.manualVoiceOverride != null
+                      ? 'Using a manual voice override for this language.'
+                      : 'Using automatic voice selection with preferred/default fallback.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(currentSelection),
+                  initialValue: currentSelection,
+                  decoration: const InputDecoration(
+                    labelText: 'Voice',
+                    isDense: true,
+                  ),
+                  items: [
+                    const DropdownMenuItem(
+                      value: _automaticVoiceSelection,
+                      child: Text('Automatic'),
+                    ),
+                    ...filteredVoices.map(
+                      (voice) => DropdownMenuItem(
+                        value: voice.id,
+                        child: Text(voice.displayLabel),
+                      ),
+                    ),
+                  ],
+                  onChanged: state.isVoiceLoading
+                      ? null
+                      : (value) {
+                          if (value == null ||
+                              value == _automaticVoiceSelection) {
+                            context.read<ChatBloc>().add(
+                              const AssistantVoiceChanged(null),
+                            );
+                            return;
+                          }
+
+                          final selectedVoice = filteredVoices.firstWhere(
+                            (voice) => voice.id == value,
+                          );
+                          context.read<ChatBloc>().add(
+                            AssistantVoiceChanged(selectedVoice),
+                          );
+                        },
+                ),
+                const SizedBox(height: 12),
+                if (state.isVoiceLoading) const LinearProgressIndicator(),
+                if (!state.isVoiceLoading) ...[
+                  Text(
+                    state.activeVoice == null
+                        ? 'Current active voice: device default'
+                        : 'Current active voice: ${state.activeVoice!.displayLabel}',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  if (filteredVoices.isEmpty)
+                    Text(
+                      'No installed voices were found for this language. The app will fall back to the device default voice.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                ],
+              ],
+            );
+          },
         ),
       ),
     );

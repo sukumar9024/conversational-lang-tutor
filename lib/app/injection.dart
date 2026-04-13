@@ -22,5 +22,7 @@ Future<void> configureDependencies({EnvService? envService}) async {
     () => OpenRouterService(getIt<Dio>(), getIt<EnvService>()),
   );
   getIt.registerLazySingleton<SpeechToTextService>(SpeechToTextService.new);
-  getIt.registerLazySingleton<TextToSpeechService>(TextToSpeechService.new);
+  getIt.registerLazySingleton<TextToSpeechService>(
+    () => TextToSpeechService(getIt<EnvService>()),
+  );
 }
