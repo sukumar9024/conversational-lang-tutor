@@ -32,13 +32,20 @@ class NetworkFailure extends Failure {
 
   static String _handleStatusCode(int? statusCode) {
     switch (statusCode) {
-      case 400: return 'Bad request';
-      case 401: return 'Unauthorized. Please check your API key.';
-      case 403: return 'Access forbidden';
-      case 404: return 'Resource not found';
-      case 429: return 'Rate limit exceeded. Please wait.';
-      case 500: return 'Server error. Please try again later.';
-      default: return 'Request failed with status: $statusCode';
+      case 400:
+        return 'Bad request';
+      case 401:
+        return 'Unauthorized. Please check your API key.';
+      case 403:
+        return 'Access forbidden';
+      case 404:
+        return 'Resource not found';
+      case 429:
+        return 'Rate limit exceeded. Please wait.';
+      case 500:
+        return 'Server error. Please try again later.';
+      default:
+        return 'Request failed with status: $statusCode';
     }
   }
 }

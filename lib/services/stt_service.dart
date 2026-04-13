@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:permission_handler/permission_handler.dart';
@@ -7,10 +8,23 @@ import '../core/errors/failures.dart';
 class SpeechToTextService {
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _isInitialized = false;
+  VoidCallback? _onListeningStarted;
+  VoidCallback? _onListeningStopped;
 
   Future<void> init() async {
     if (_isInitialized) return;
-    _isInitialized = await _speech.initialize();
+    _isInitialized = await _speech.initialize(
+      onError: (_) => _notifyListeningStopped(),
+      onStatus: (status) {
+        if (status == 'listening') {
+          _onListeningStarted?.call();
+        }
+
+        if (status == 'notListening' || status == 'done') {
+          _notifyListeningStopped();
+        }
+      },
+    );
     if (!_isInitialized) {
       throw VoiceServiceFailure('Speech recognition not available');
     }
@@ -21,7 +35,7 @@ class SpeechToTextService {
     return status.isGranted;
   }
 
-  void startListening({
+  Future<void> startListening({
     required Function(String text) onResult,
     required VoidCallback onListeningStarted,
     required VoidCallback onListeningStopped,
@@ -33,17 +47,19 @@ class SpeechToTextService {
       throw PermissionFailure('Microphone permission required');
     }
 
-    _speech.listen(
+    _onListeningStarted = onListeningStarted;
+    _onListeningStopped = onListeningStopped;
+
+    await _speech.listen(
       onResult: (result) => onResult(result.recognizedWords),
       listenFor: const Duration(seconds: 60),
       pauseFor: const Duration(seconds: 3),
-      partialResults: true,
-      onSoundLevelChange: null,
-      cancelOnError: true,
-      listenMode: stt.ListenMode.dictation,
+      listenOptions: stt.SpeechListenOptions(
+        partialResults: true,
+        cancelOnError: true,
+        listenMode: stt.ListenMode.dictation,
+      ),
     );
-
-    onListeningStarted();
   }
 
   Future<void> stopListening() async {
@@ -54,5 +70,9 @@ class SpeechToTextService {
 
   void dispose() {
     _speech.stop();
+  }
+
+  void _notifyListeningStopped() {
+    _onListeningStopped?.call();
   }
 }

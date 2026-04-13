@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../models/message.dart';
+import '../models/message.dart';
 import '../theme/colors.dart';
 
 class ChatBubble extends StatelessWidget {
@@ -26,8 +26,12 @@ class ChatBubble extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: isUser
-              ? (isDarkMode ? AppColors.userBubbleDark : AppColors.userBubbleLight)
-              : (isDarkMode ? AppColors.assistantBubbleDark : AppColors.assistantBubbleLight),
+              ? (isDarkMode
+                    ? AppColors.userBubbleDark
+                    : AppColors.userBubbleLight)
+              : (isDarkMode
+                    ? AppColors.assistantBubbleDark
+                    : AppColors.assistantBubbleLight),
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(18),
             topRight: const Radius.circular(18),
@@ -38,16 +42,19 @@ class ChatBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              message.content,
-              style: TextStyle(
-                color: isUser
-                    ? Colors.white
-                    : (isDarkMode ? AppColors.textPrimaryDark : AppColors.textPrimaryLight),
-                height: 1.4,
+            if (message.content.isNotEmpty)
+              Text(
+                message.content,
+                style: TextStyle(
+                  color: isUser
+                      ? Colors.white
+                      : (isDarkMode
+                            ? AppColors.textPrimaryDark
+                            : AppColors.textPrimaryLight),
+                  height: 1.4,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
+            if (message.content.isNotEmpty) const SizedBox(height: 4),
             if (message.status == MessageStatus.thinking)
               const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -58,7 +65,10 @@ class ChatBubble extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                   SizedBox(width: 8),
-                  Text('Thinking...', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  Text(
+                    'Thinking...',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
                 ],
               ),
           ],

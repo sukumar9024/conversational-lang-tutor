@@ -1,17 +1,8 @@
 import 'package:equatable/equatable.dart';
 
-enum MessageRole {
-  user,
-  assistant,
-}
+enum MessageRole { user, assistant }
 
-enum MessageStatus {
-  sending,
-  sent,
-  error,
-  thinking,
-  speaking,
-}
+enum MessageStatus { sending, sent, error, thinking, speaking }
 
 class Message extends Equatable {
   final String id;

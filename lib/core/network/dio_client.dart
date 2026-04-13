@@ -1,14 +1,13 @@
 import 'package:dio/dio.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
-import '../../app/injection.dart';
+import '../../services/env_service.dart';
 import '../constants/app_constants.dart';
 
-@module
-abstract class DioClient {
-  @singleton
-  Dio provideDio() {
+class DioClient {
+  static Dio create(EnvService envService) {
     final dio = Dio(
       BaseOptions(
+        baseUrl: envService.openRouterBaseUrl,
         connectTimeout: const Duration(milliseconds: AppConstants.apiTimeout),
         receiveTimeout: const Duration(milliseconds: AppConstants.apiTimeout),
         sendTimeout: const Duration(milliseconds: AppConstants.apiTimeout),
@@ -19,16 +18,18 @@ abstract class DioClient {
       ),
     );
 
-    dio.interceptors.add(
-      PrettyDioLogger(
-        requestHeader: true,
-        requestBody: true,
-        responseBody: true,
-        request: true,
-        error: true,
-        maxWidth: 90,
-      ),
-    );
+    if (envService.isDebug) {
+      dio.interceptors.add(
+        PrettyDioLogger(
+          requestHeader: true,
+          requestBody: true,
+          responseBody: true,
+          request: true,
+          error: true,
+          maxWidth: 90,
+        ),
+      );
+    }
 
     return dio;
   }

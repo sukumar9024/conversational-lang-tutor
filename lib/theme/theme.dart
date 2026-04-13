@@ -12,10 +12,9 @@ class AppTheme {
       colorScheme: ColorScheme.light(
         primary: AppColors.primary,
         onPrimary: Colors.white,
-        primaryContainer: AppColors.primaryLight.withOpacity(0.2),
+        primaryContainer: AppColors.primaryLight.withAlpha(51),
         secondary: AppColors.primaryLight,
         surface: AppColors.surfaceLight,
-        background: AppColors.backgroundLight,
         error: AppColors.error,
         onError: Colors.white,
       ),
@@ -36,12 +35,10 @@ class AppTheme {
         iconTheme: const IconThemeData(color: AppColors.textPrimaryLight),
       ),
 
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surfaceLight,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         shadowColor: Colors.black12,
       ),
 
@@ -74,13 +71,13 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.error, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
 
-      dividerTheme: const DividerThemeData(
-        thickness: 0.5,
-        space: 1,
-      ),
+      dividerTheme: const DividerThemeData(thickness: 0.5, space: 1),
     );
   }
 
@@ -93,10 +90,9 @@ class AppTheme {
       colorScheme: ColorScheme.dark(
         primary: AppColors.primaryLight,
         onPrimary: Colors.white,
-        primaryContainer: AppColors.primaryDark.withOpacity(0.3),
+        primaryContainer: AppColors.primaryDark.withAlpha(77),
         secondary: AppColors.primaryLight,
         surface: AppColors.surfaceDark,
-        background: AppColors.backgroundDark,
         error: AppColors.error,
         onError: Colors.white,
       ),
@@ -117,12 +113,10 @@ class AppTheme {
         iconTheme: const IconThemeData(color: AppColors.textPrimaryDark),
       ),
 
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surfaceDark,
         elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         shadowColor: Colors.black54,
       ),
 
@@ -155,13 +149,13 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.error, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
 
-      dividerTheme: const DividerThemeData(
-        thickness: 0.5,
-        space: 1,
-      ),
+      dividerTheme: const DividerThemeData(thickness: 0.5, space: 1),
     );
   }
 }

@@ -7,7 +7,9 @@ abstract class ChatEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class ChatInitialized extends ChatEvent {}
+class ChatInitialized extends ChatEvent {
+  const ChatInitialized();
+}
 
 class MessageSent extends ChatEvent {
   final String text;
@@ -18,14 +20,27 @@ class MessageSent extends ChatEvent {
   List<Object?> get props => [text];
 }
 
-class RecordingStarted extends ChatEvent {}
+class RecordingStarted extends ChatEvent {
+  const RecordingStarted();
+}
 
-class RecordingStopped extends ChatEvent {}
+class RecordingStopped extends ChatEvent {
+  const RecordingStopped();
+}
+
+class RecordingStatusChanged extends ChatEvent {
+  final bool isRecording;
+
+  const RecordingStatusChanged({required this.isRecording});
+
+  @override
+  List<Object?> get props => [isRecording];
+}
 
 class TextRecognized extends ChatEvent {
   final String text;
 
-  const TextRecognized(this.text);
+  const TextRecognized({required this.text});
 
   @override
   List<Object?> get props => [text];
@@ -35,10 +50,7 @@ class MessageUpdated extends ChatEvent {
   final String messageId;
   final String content;
 
-  const MessageUpdated({
-    required this.messageId,
-    required this.content,
-  });
+  const MessageUpdated({required this.messageId, required this.content});
 
   @override
   List<Object?> get props => [messageId, content];
@@ -47,13 +59,25 @@ class MessageUpdated extends ChatEvent {
 class ResponseReceived extends ChatEvent {
   final String messageId;
 
-  const ResponseReceived(this.messageId);
+  const ResponseReceived({required this.messageId});
 
   @override
   List<Object?> get props => [messageId];
 }
 
-class ClearChatRequested extends ChatEvent {}
+class ResponseFailed extends ChatEvent {
+  final String messageId;
+  final String error;
+
+  const ResponseFailed({required this.messageId, required this.error});
+
+  @override
+  List<Object?> get props => [messageId, error];
+}
+
+class ClearChatRequested extends ChatEvent {
+  const ClearChatRequested();
+}
 
 class ModeChanged extends ChatEvent {
   final LanguageMode mode;
@@ -64,4 +88,15 @@ class ModeChanged extends ChatEvent {
   List<Object?> get props => [mode];
 }
 
-class ToggleMuteRequested extends ChatEvent {}
+class TargetLanguageChanged extends ChatEvent {
+  final String languageCode;
+
+  const TargetLanguageChanged(this.languageCode);
+
+  @override
+  List<Object?> get props => [languageCode];
+}
+
+class ToggleMuteRequested extends ChatEvent {
+  const ToggleMuteRequested();
+}

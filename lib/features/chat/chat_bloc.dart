@@ -1,110 +1,135 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:uuid/uuid.dart';
-import '../../../models/message.dart';
-import '../../../services/openrouter_service.dart';
-import '../../../services/stt_service.dart';
-import '../../../services/tts_service.dart';
-import '../../../services/env_service.dart';
+import '../../core/constants/app_constants.dart';
+import '../../core/errors/failures.dart';
+import '../../models/message.dart';
+import '../../services/openrouter_service.dart';
+import '../../services/stt_service.dart';
+import '../../services/tts_service.dart';
 
 part 'chat_event.dart';
 part 'chat_state.dart';
-
-const _uuid = Uuid();
 
 class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final OpenRouterService _openRouterService;
   final SpeechToTextService _sttService;
   final TextToSpeechService _ttsService;
-  final EnvService _envService;
 
   StreamSubscription? _responseSubscription;
-  LanguageMode _currentMode = LanguageMode.immersion;
-  String _targetLanguage = 'es';
+  int _messageCounter = 0;
 
-  ChatBloc(
-    this._openRouterService,
-    this._sttService,
-    this._ttsService,
-    this._envService,
-  ) : super(const ChatState()) {
+  ChatBloc(this._openRouterService, this._sttService, this._ttsService)
+    : super(const ChatState()) {
     on<ChatInitialized>(_onInitialized);
     on<MessageSent>(_onMessageSent);
     on<RecordingStarted>(_onRecordingStarted);
     on<RecordingStopped>(_onRecordingStopped);
+    on<RecordingStatusChanged>(_onRecordingStatusChanged);
     on<TextRecognized>(_onTextRecognized);
     on<MessageUpdated>(_onMessageUpdated);
     on<ResponseReceived>(_onResponseReceived);
+    on<ResponseFailed>(_onResponseFailed);
     on<ClearChatRequested>(_onClearChat);
     on<ModeChanged>(_onModeChanged);
+    on<TargetLanguageChanged>(_onTargetLanguageChanged);
     on<ToggleMuteRequested>(_onToggleMute);
   }
 
-  Future<void> _onInitialized(ChatInitialized event, Emitter<ChatState> emit) async {
-    await _sttService.init();
-    await _ttsService.init();
-    emit(state.copyWith(isMuted: _ttsService.isMuted));
+  Future<void> _onInitialized(
+    ChatInitialized event,
+    Emitter<ChatState> emit,
+  ) async {
+    try {
+      await _sttService.init();
+      await _ttsService.init();
+      emit(state.copyWith(isMuted: _ttsService.isMuted, clearError: true));
+    } catch (error) {
+      emit(state.copyWith(error: _formatError(error)));
+    }
   }
 
-  Future<void> _onMessageSent(MessageSent event, Emitter<ChatState> emit) async {
+  Future<void> _onMessageSent(
+    MessageSent event,
+    Emitter<ChatState> emit,
+  ) async {
+    final trimmedText = event.text.trim();
+    if (trimmedText.isEmpty) {
+      return;
+    }
+
+    await _responseSubscription?.cancel();
+
     final userMessage = Message(
-      id: _uuid.v4(),
-      content: event.text,
+      id: _nextMessageId(),
+      content: trimmedText,
       role: MessageRole.user,
       timestamp: DateTime.now(),
     );
+    final assistantMessageId = _nextMessageId();
+    final updatedMessages = List<Message>.of(state.messages)
+      ..add(userMessage)
+      ..add(
+        Message(
+          id: assistantMessageId,
+          content: '',
+          role: MessageRole.assistant,
+          timestamp: DateTime.now(),
+          status: MessageStatus.thinking,
+        ),
+      );
 
-    emit(state.copyWith(
-      messages: List.of(state.messages)..add(userMessage),
-      isLoading: true,
-    ));
+    final trimmedHistory = _trimConversation(updatedMessages);
 
-    final assistantMessageId = _uuid.v4();
-    emit(state.copyWith(
-      messages: List.of(state.messages)..add(Message(
-        id: assistantMessageId,
-        content: '',
-        role: MessageRole.assistant,
-        timestamp: DateTime.now(),
-        status: MessageStatus.thinking,
-      )),
-    ));
+    emit(
+      state.copyWith(
+        messages: trimmedHistory,
+        isLoading: true,
+        draftText: '',
+        clearError: true,
+      ),
+    );
 
-    final messages = state.messages
+    final requestMessages = trimmedHistory
         .where((m) => m.content.isNotEmpty)
-        .map((m) => {
-          'role': m.role == MessageRole.user ? 'user' : 'assistant',
-          'content': m.content,
-        })
+        .map(
+          (m) => {
+            'role': m.role == MessageRole.user ? 'user' : 'assistant',
+            'content': m.content,
+          },
+        )
         .toList();
 
-    try {
-      _responseSubscription = _openRouterService.streamResponse(messages, _currentMode, _targetLanguage).listen(
-        (content) => add(MessageUpdated(messageId: assistantMessageId, content: content)),
-        onDone: () => add(ResponseReceived(messageId: assistantMessageId)),
-        onError: (error) {
-          emit(state.copyWith(
-            messages: List.of(state.messages)..removeLast(),
-            isLoading: false,
-            error: error.toString(),
-          ));
-        },
-      );
-    } catch (e) {
-      emit(state.copyWith(
-        messages: List.of(state.messages)..removeLast(),
-        isLoading: false,
-        error: e.toString(),
-      ));
-    }
+    _responseSubscription = _openRouterService
+        .streamResponse(
+          requestMessages,
+          state.currentMode,
+          state.targetLanguage,
+        )
+        .listen(
+          (content) => add(
+            MessageUpdated(messageId: assistantMessageId, content: content),
+          ),
+          onDone: () => add(ResponseReceived(messageId: assistantMessageId)),
+          onError: (error) {
+            add(
+              ResponseFailed(
+                messageId: assistantMessageId,
+                error: _formatError(error),
+              ),
+            );
+          },
+        );
   }
 
   void _onMessageUpdated(MessageUpdated event, Emitter<ChatState> emit) {
     final index = state.messages.indexWhere((m) => m.id == event.messageId);
     if (index != -1) {
       final updatedMessages = List.of(state.messages);
-      updatedMessages[index] = updatedMessages[index].copyWith(content: event.content);
+      updatedMessages[index] = updatedMessages[index].copyWith(
+        content: event.content,
+        status: MessageStatus.thinking,
+      );
       emit(state.copyWith(messages: updatedMessages));
     }
   }
@@ -113,39 +138,110 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     final index = state.messages.indexWhere((m) => m.id == event.messageId);
     if (index != -1) {
       final updatedMessages = List.of(state.messages);
-      final message = updatedMessages[index];
-      updatedMessages[index] = message.copyWith(status: MessageStatus.sent);
-      emit(state.copyWith(messages: updatedMessages, isLoading: false));
-      _ttsService.speak(message.content);
+      final message = updatedMessages[index].copyWith(
+        status: MessageStatus.sent,
+      );
+      updatedMessages[index] = message;
+      emit(
+        state.copyWith(
+          messages: updatedMessages,
+          isLoading: false,
+          clearError: true,
+        ),
+      );
+      unawaited(_ttsService.speak(message.content));
     }
   }
 
-  void _onRecordingStarted(RecordingStarted event, Emitter<ChatState> emit) {
-    _sttService.startListening(
-      onResult: (text) => add(TextRecognized(text: text)),
-      onListeningStarted: () => emit(state.copyWith(isRecording: true)),
-      onListeningStopped: () => emit(state.copyWith(isRecording: false)),
-    );
+  Future<void> _onRecordingStarted(
+    RecordingStarted event,
+    Emitter<ChatState> emit,
+  ) async {
+    try {
+      await _sttService.startListening(
+        onResult: (text) => add(TextRecognized(text: text)),
+        onListeningStarted: () =>
+            add(const RecordingStatusChanged(isRecording: true)),
+        onListeningStopped: () =>
+            add(const RecordingStatusChanged(isRecording: false)),
+      );
+    } catch (error) {
+      emit(state.copyWith(error: _formatError(error)));
+    }
   }
 
-  void _onRecordingStopped(RecordingStopped event, Emitter<ChatState> emit) async {
-    await _sttService.stopListening();
-    emit(state.copyWith(isRecording: false));
+  void _onRecordingStopped(
+    RecordingStopped event,
+    Emitter<ChatState> emit,
+  ) async {
+    try {
+      await _sttService.stopListening();
+      emit(state.copyWith(isRecording: false));
+    } catch (error) {
+      emit(state.copyWith(error: _formatError(error)));
+    }
+  }
+
+  void _onRecordingStatusChanged(
+    RecordingStatusChanged event,
+    Emitter<ChatState> emit,
+  ) {
+    emit(state.copyWith(isRecording: event.isRecording));
   }
 
   void _onTextRecognized(TextRecognized event, Emitter<ChatState> emit) {
     emit(state.copyWith(draftText: event.text));
   }
 
-  void _onClearChat(ClearChatRequested event, Emitter<ChatState> emit) {
-    _responseSubscription?.cancel();
-    _ttsService.stop();
-    emit(const ChatState());
+  Future<void> _onResponseFailed(
+    ResponseFailed event,
+    Emitter<ChatState> emit,
+  ) async {
+    await _responseSubscription?.cancel();
+    _responseSubscription = null;
+
+    final updatedMessages = List.of(state.messages);
+    final index = updatedMessages.indexWhere((m) => m.id == event.messageId);
+    if (index != -1) {
+      updatedMessages.removeAt(index);
+    }
+
+    emit(
+      state.copyWith(
+        messages: updatedMessages,
+        isLoading: false,
+        error: event.error,
+      ),
+    );
+  }
+
+  Future<void> _onClearChat(
+    ClearChatRequested event,
+    Emitter<ChatState> emit,
+  ) async {
+    await _responseSubscription?.cancel();
+    _responseSubscription = null;
+    await _ttsService.stop();
+    emit(
+      state.copyWith(
+        messages: const [],
+        isLoading: false,
+        isRecording: false,
+        draftText: '',
+        clearError: true,
+      ),
+    );
   }
 
   void _onModeChanged(ModeChanged event, Emitter<ChatState> emit) {
-    _currentMode = event.mode;
     emit(state.copyWith(currentMode: event.mode));
+  }
+
+  void _onTargetLanguageChanged(
+    TargetLanguageChanged event,
+    Emitter<ChatState> emit,
+  ) {
+    emit(state.copyWith(targetLanguage: event.languageCode));
   }
 
   void _onToggleMute(ToggleMuteRequested event, Emitter<ChatState> emit) {
@@ -154,10 +250,33 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   }
 
   @override
-  Future<void> close() {
-    _responseSubscription?.cancel();
+  Future<void> close() async {
+    await _responseSubscription?.cancel();
     _sttService.dispose();
     _ttsService.dispose();
-    return super.close();
+    await super.close();
+  }
+
+  List<Message> _trimConversation(List<Message> messages) {
+    if (messages.length <= AppConstants.maxConversationHistory) {
+      return messages;
+    }
+
+    return messages.sublist(
+      messages.length - AppConstants.maxConversationHistory,
+    );
+  }
+
+  String _nextMessageId() {
+    _messageCounter += 1;
+    return '${DateTime.now().microsecondsSinceEpoch}-$_messageCounter';
+  }
+
+  String _formatError(Object error) {
+    if (error is Failure) {
+      return error.message;
+    }
+
+    return error.toString();
   }
 }

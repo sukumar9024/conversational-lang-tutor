@@ -9,6 +9,7 @@ class TextToSpeechService {
 
   Future<void> init() async {
     if (_isInitialized) return;
+    await _tts.awaitSpeakCompletion(true);
     await _tts.setSpeechRate(0.5);
     await _tts.setVolume(1.0);
     await _tts.setPitch(1.0);
@@ -16,8 +17,9 @@ class TextToSpeechService {
   }
 
   Future<void> speak(String text) async {
-    if (_isMuted) return;
+    if (_isMuted || text.trim().isEmpty) return;
     if (!_isInitialized) await init();
+    await _tts.stop();
     await _tts.speak(text);
   }
 

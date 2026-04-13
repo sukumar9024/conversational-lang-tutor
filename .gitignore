@@ -16,6 +16,9 @@ migrate_working_dir/
 .env
 .env.local
 .env.*.local
+android/key.properties
+*.jks
+*.keystore
 keys/
 secrets/
 

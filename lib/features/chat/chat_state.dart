@@ -1,5 +1,7 @@
 part of 'chat_bloc.dart';
 
+const _noErrorUpdate = Object();
+
 class ChatState extends Equatable {
   final List<Message> messages;
   final bool isLoading;
@@ -7,6 +9,7 @@ class ChatState extends Equatable {
   final String draftText;
   final String? error;
   final LanguageMode currentMode;
+  final String targetLanguage;
   final bool isMuted;
 
   const ChatState({
@@ -16,6 +19,7 @@ class ChatState extends Equatable {
     this.draftText = '',
     this.error,
     this.currentMode = LanguageMode.immersion,
+    this.targetLanguage = 'es',
     this.isMuted = false,
   });
 
@@ -24,8 +28,10 @@ class ChatState extends Equatable {
     bool? isLoading,
     bool? isRecording,
     String? draftText,
-    String? error,
+    Object? error = _noErrorUpdate,
+    bool clearError = false,
     LanguageMode? currentMode,
+    String? targetLanguage,
     bool? isMuted,
   }) {
     return ChatState(
@@ -33,20 +39,26 @@ class ChatState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       isRecording: isRecording ?? this.isRecording,
       draftText: draftText ?? this.draftText,
-      error: error,
+      error: clearError
+          ? null
+          : identical(error, _noErrorUpdate)
+          ? this.error
+          : error as String?,
       currentMode: currentMode ?? this.currentMode,
+      targetLanguage: targetLanguage ?? this.targetLanguage,
       isMuted: isMuted ?? this.isMuted,
     );
   }
 
   @override
   List<Object?> get props => [
-        messages,
-        isLoading,
-        isRecording,
-        draftText,
-        error,
-        currentMode,
-        isMuted,
-      ];
+    messages,
+    isLoading,
+    isRecording,
+    draftText,
+    error,
+    currentMode,
+    targetLanguage,
+    isMuted,
+  ];
 }

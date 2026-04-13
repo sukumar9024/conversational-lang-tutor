@@ -5,11 +5,7 @@ import 'package:injectable/injectable.dart';
 import 'env_service.dart';
 import '../core/errors/failures.dart';
 
-enum LanguageMode {
-  immersion,
-  guided,
-  correction,
-}
+enum LanguageMode { immersion, guided, correction }
 
 @lazySingleton
 class OpenRouterService {
@@ -18,16 +14,22 @@ class OpenRouterService {
 
   OpenRouterService(this._dio, this._envService);
 
-  Stream<String> streamResponse(List<Map<String, dynamic>> messages, LanguageMode mode, String targetLanguage) async* {
+  Stream<String> streamResponse(
+    List<Map<String, dynamic>> messages,
+    LanguageMode mode,
+    String targetLanguage,
+  ) async* {
     if (!_envService.hasValidApiKey) {
-      throw NetworkFailure('Please configure your OpenRouter API key in .env file');
+      throw NetworkFailure(
+        'Please configure your OpenRouter API key in .env file',
+      );
     }
 
     final systemPrompt = _buildSystemPrompt(mode, targetLanguage);
 
     try {
-      final response = await _dio.post(
-        '${_envService.openRouterBaseUrl}/chat/completions',
+      final response = await _dio.post<ResponseBody>(
+        '/chat/completions',
         options: Options(
           headers: {
             'Authorization': 'Bearer ${_envService.openRouterApiKey}',
@@ -48,30 +50,78 @@ class OpenRouterService {
         },
       );
 
-      final stream = response.data.stream;
-      String buffer = '';
+      final responseBody = response.data;
+      if (responseBody == null) {
+        throw NetworkFailure('Empty response from OpenRouter');
+      }
 
-      await for (final chunk in stream) {
-        final lines = utf8.decode(chunk).split('\n');
+      var pendingChunk = '';
+      var fullResponse = '';
+
+      await for (final chunk in responseBody.stream) {
+        pendingChunk += utf8.decode(chunk, allowMalformed: true);
+        final lines = pendingChunk.split('\n');
+        pendingChunk = lines.removeLast();
+
         for (final line in lines) {
-          if (line.startsWith('data: ')) {
-            final data = line.substring(6);
-            if (data == '[DONE]') continue;
-
-            try {
-              final json = jsonDecode(data);
-              final content = json['choices']?[0]?['delta']?['content'] as String?;
-              if (content != null) {
-                buffer += content;
-                yield buffer;
-              }
-            } catch (_) {}
+          final trimmedLine = line.trim();
+          if (!trimmedLine.startsWith('data:')) {
+            continue;
           }
+
+          final data = trimmedLine.substring(5).trim();
+          if (data.isEmpty) {
+            continue;
+          }
+          if (data == '[DONE]') {
+            return;
+          }
+
+          final payload = jsonDecode(data);
+          if (payload is! Map<String, dynamic>) {
+            continue;
+          }
+
+          final error = payload['error'];
+          if (error != null) {
+            throw NetworkFailure(_extractErrorMessage(error));
+          }
+
+          final choices = payload['choices'];
+          if (choices is! List || choices.isEmpty) {
+            continue;
+          }
+
+          final firstChoice = choices.first;
+          if (firstChoice is! Map<String, dynamic>) {
+            continue;
+          }
+
+          final delta = firstChoice['delta'];
+          if (delta is! Map<String, dynamic>) {
+            continue;
+          }
+
+          final content = delta['content']?.toString();
+          if (content == null || content.isEmpty) {
+            continue;
+          }
+
+          fullResponse += content;
+          yield fullResponse;
         }
       }
     } on DioException catch (e) {
       throw NetworkFailure.fromDioError(e);
     }
+  }
+
+  String _extractErrorMessage(Object error) {
+    if (error is Map<String, dynamic>) {
+      return error['message']?.toString() ?? 'OpenRouter request failed';
+    }
+
+    return error.toString();
   }
 
   String _buildSystemPrompt(LanguageMode mode, String targetLanguage) {
