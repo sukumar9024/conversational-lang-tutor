@@ -28,39 +28,137 @@ A production-ready cross-platform mobile application for conversational language
 ## 🚀 Getting Started
 
 ### 1. Prerequisites
-- Flutter SDK >= 3.10.0
-- Android Studio / Xcode
-- OpenRouter API Key
+- Flutter SDK `3.41.6` or newer
+- Dart SDK `3.11.4` or newer
+- Java `17`
+- Android Studio with Android SDK installed
+- Xcode if you want to build for iOS
+- OpenRouter API key
 
 ### 2. Installation
 
 ```bash
-# Clone the repository
 git clone <repository-url>
-cd language_practice
-
-# Install dependencies
+cd conversation
 flutter pub get
 ```
 
-### 3. Configure Secrets
-```bash
-# Copy example environment file
-cp .env.example .env
+### 3. Verify Local Tooling
 
-# Edit .env and add your OpenRouter API key
-OPENROUTER_API_KEY=your_actual_api_key_here
+Run:
+
+```bash
+flutter doctor
 ```
 
-Get your API key from [OpenRouter](https://openrouter.ai/keys)
+Make sure Flutter can see:
+- the Flutter SDK
+- Android toolchain
+- Android SDK
+- Xcode if you need iOS
 
-### 4. Run the App
+### 4. Files Created Locally After Cloning
+
+These files are local-machine or generated files. They may not exist immediately after clone, and that is expected.
+
+| File | Purpose | How it is created |
+|---|---|---|
+| `.env` | Runtime app configuration and API key | Create manually from `.env.example` |
+| `android/key.properties` | Android release signing config | Create manually from `android/key.properties.example` if you want signed release builds |
+| `android/local.properties` | Local Android SDK + Flutter paths | Usually generated automatically by Flutter/Gradle |
+| `.flutter-plugins-dependencies` | Generated Flutter plugin metadata | Generated automatically by `flutter pub get` / `flutter run` |
+| `.dart_tool/` | Generated Dart/Flutter build state | Generated automatically |
+| `build/` | Build outputs | Generated automatically |
+
+### 5. Create `.env`
+
 ```bash
-# For Android
+cp .env.example .env
+```
+
+Then edit `.env` and set at least:
+
+```env
+OPENROUTER_API_KEY=your_actual_openrouter_api_key
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_PRIMARY_MODEL=anthropic/claude-sonnet-4.5
+OPENROUTER_FALLBACK_MODEL_1=openai/gpt-4.1-mini
+OPENROUTER_FALLBACK_MODEL_2=google/gemini-2.5-flash
+APP_DEBUG=false
+APP_LOG_LEVEL=info
+```
+
+The app uses 3 OpenRouter models in priority order. If the primary model is unavailable, OpenRouter can route to the fallback models.
+
+Get your API key from [OpenRouter](https://openrouter.ai/keys).
+
+### 6. Generate Local Build Files
+
+Run one of these:
+
+```bash
+flutter run
+```
+
+or
+
+```bash
+flutter build apk --debug
+```
+
+That will usually generate local files like:
+- `android/local.properties`
+- `.flutter-plugins-dependencies`
+- `.dart_tool/`
+
+### 7. Android SDK Note
+
+If Android builds fail because the SDK path is missing or wrong:
+- install the Android SDK from Android Studio
+- make sure `flutter doctor` reports the Android toolchain correctly
+- regenerate `android/local.properties` by rerunning `flutter run` or `flutter build`
+
+`android/local.properties` is machine-specific and should point to your own Android SDK location.
+
+### 8. Run the App
+
+```bash
 flutter run
 
-# For iOS
 flutter run -d ios
+```
+
+## 🔐 Release Setup
+
+### Android Release Signing
+
+For a proper signed Android release, create `android/key.properties`:
+
+```bash
+cp android/key.properties.example android/key.properties
+```
+
+Then fill in:
+
+```properties
+storePassword=your-store-password
+keyPassword=your-key-password
+keyAlias=upload
+storeFile=/absolute/path/to/your-upload-keystore.jks
+```
+
+If `android/key.properties` is not present, the project falls back to debug signing for local release builds only. That is fine for local testing, but not for production distribution.
+
+### Android Release Build
+
+```bash
+flutter build apk --release
+```
+
+### iOS Release Build
+
+```bash
+flutter build ios --release
 ```
 
 ## 🏗 Architecture
@@ -104,20 +202,28 @@ lib/
 | Variable | Description |
 |---|---|
 | `OPENROUTER_API_KEY` | Your OpenRouter API key |
-| `OPENROUTER_MODEL` | LLM model to use |
 | `OPENROUTER_BASE_URL` | API endpoint |
+| `OPENROUTER_PRIMARY_MODEL` | First model to try |
+| `OPENROUTER_FALLBACK_MODEL_1` | Second model to try |
+| `OPENROUTER_FALLBACK_MODEL_2` | Third model to try |
+| `OPENROUTER_MODEL` | Optional legacy single-model variable |
+| `APP_DEBUG` | Enables debug-oriented app/network behavior |
+| `APP_LOG_LEVEL` | App logging level |
 
-## 🛠 Build for Production
+## 📁 What Not To Commit
 
-### Android
-```bash
-flutter build apk --release
-```
+Do not commit:
+- `.env`
+- `android/key.properties`
+- `.dart_tool/`
+- `build/`
+- machine-specific SDK paths
 
-### iOS
-```bash
-flutter build ios --release
-```
+Safe to commit:
+- `.env.example`
+- `android/key.properties.example`
+- app source code
+- shared Gradle and Flutter config
 
 ## 📝 License
 
