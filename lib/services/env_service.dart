@@ -25,8 +25,36 @@ class EnvService {
     'OPENROUTER_BASE_URL',
     fallback: 'https://openrouter.ai/api/v1',
   );
-  String get openRouterModel =>
-      dotenv.get('OPENROUTER_MODEL', fallback: 'anthropic/claude-3.5-sonnet');
+  String get openRouterModel => openRouterModels.first;
+  List<String> get openRouterModels {
+    final primaryModel = dotenv.get(
+      'OPENROUTER_PRIMARY_MODEL',
+      fallback: dotenv.get(
+        'OPENROUTER_MODEL',
+        fallback: 'anthropic/claude-sonnet-4.5',
+      ),
+    );
+    final fallbackModel1 = dotenv.get(
+      'OPENROUTER_FALLBACK_MODEL_1',
+      fallback: 'openai/gpt-4.1-mini',
+    );
+    final fallbackModel2 = dotenv.get(
+      'OPENROUTER_FALLBACK_MODEL_2',
+      fallback: 'google/gemini-2.5-flash',
+    );
+
+    final orderedModels = <String>[
+      primaryModel,
+      fallbackModel1,
+      fallbackModel2,
+    ];
+
+    return orderedModels
+        .map((model) => model.trim())
+        .where((model) => model.isNotEmpty)
+        .toSet()
+        .toList();
+  }
 
   bool get isDebug => dotenv.get('APP_DEBUG', fallback: 'false') == 'true';
   String get logLevel => dotenv.get('APP_LOG_LEVEL', fallback: 'info');

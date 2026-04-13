@@ -26,6 +26,7 @@ class OpenRouterService {
     }
 
     final systemPrompt = _buildSystemPrompt(mode, targetLanguage);
+    final models = _envService.openRouterModels;
 
     try {
       final response = await _dio.post<ResponseBody>(
@@ -39,7 +40,8 @@ class OpenRouterService {
           responseType: ResponseType.stream,
         ),
         data: {
-          'model': _envService.openRouterModel,
+          'model': models.first,
+          'models': models.skip(1).toList(),
           'messages': [
             {'role': 'system', 'content': systemPrompt},
             ...messages,
